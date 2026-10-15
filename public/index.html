@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f6f7fb" />
+  <meta name="theme-color" content="#7866e8" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Dayflow" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <meta name="description" content="Dayflow — a calm, focused daily task and progress tracker." />
   <title>Dayflow — Daily Focus</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +19,7 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
+  <div id="offline-banner" class="offline-banner" role="status" aria-live="polite"><span class="offline-dot"></span> You’re offline — showing your last saved view. Changes need a connection.</div>
   <div id="auth-screen" class="auth-screen">
     <div class="auth-brand"><span class="brand-mark">d</span><span>dayflow</span></div>
     <div class="auth-card">
@@ -37,10 +45,12 @@
       <nav class="side-nav">
         <button class="nav-item active" data-view="today"><span class="nav-icon">◷</span> My day <span id="today-count" class="nav-count">0</span></button>
         <button class="nav-item" data-view="upcoming"><span class="nav-icon">▦</span> Upcoming</button>
+        <button class="nav-item" data-view="overdue"><span class="nav-icon">!</span> Overdue <span id="overdue-count" class="nav-count warn hidden">0</span></button>
         <button class="nav-item" data-view="completed"><span class="nav-icon">✓</span> Completed</button>
         <button class="nav-item" data-view="progress"><span class="nav-icon">↗</span> Progress</button>
       </nav>
       <div class="sidebar-bottom">
+        <button id="install-btn" class="install-btn hidden" type="button"><span>⬇</span> Install app</button>
         <div class="sidebar-tip"><div class="tip-icon">✳</div><strong>Small steps count.</strong><p>Focus on the next right thing. The rest will follow.</p></div>
         <div class="user-row"><div id="avatar" class="avatar">A</div><div class="user-info"><strong id="user-name">Your account</strong><span id="user-email">you@example.com</span></div><button id="logout" class="icon-button" aria-label="Sign out" title="Sign out">↗</button></div>
       </div>
@@ -55,7 +65,7 @@
 
       <section class="page-heading">
         <div><div class="eyebrow" id="greeting">LET'S MAKE IT COUNT</div><h1 id="page-title">Good afternoon<span class="heading-period">.</span></h1><p id="page-subtitle" class="muted">Here’s your focus for today.</p></div>
-        <button id="add-task-top" class="btn btn-primary"><span class="plus">＋</span> Add a task</button>
+        <div class="heading-actions"><span id="streak-pill" class="streak-pill hidden" title="Days in a row with at least one finished task"><span class="flame">🔥</span><strong id="streak-count">0</strong><span id="streak-label">day streak</span></span><button id="mobile-install" class="btn btn-soft hidden" type="button">⬇ Install</button><button id="add-task-top" class="btn btn-primary"><span class="plus">＋</span> Add a task</button></div>
       </section>
 
       <section id="today-view" class="view">
@@ -71,8 +81,10 @@
         <div class="content-grid">
           <section class="panel tasks-panel">
             <div class="panel-heading"><div><h2>Today’s tasks <span id="task-heading-count" class="subtle-count">0</span></h2><p class="muted">Make progress at your own pace.</p></div><button id="add-task-inline" class="btn btn-soft"><span>＋</span> New task</button></div>
-            <div class="task-toolbar"><div class="filter-tabs" id="task-filters"><button class="filter-tab active" data-filter="all">All tasks</button><button class="filter-tab" data-filter="active">In progress</button><button class="filter-tab" data-filter="done">Completed</button></div><span id="task-date-label" class="small-muted"></span></div>
+            <form id="quick-add" class="quick-add" autocomplete="off"><span class="quick-plus">＋</span><input id="quick-title" type="text" maxlength="180" placeholder="Quick add a task…" aria-label="Quick add a task for today" /><select id="quick-category" aria-label="Category"><option>Study</option><option>Work</option><option>Health</option><option>Personal</option><option>Other</option></select><button class="btn btn-primary" type="submit">Add</button></form>
+            <div class="task-toolbar"><div class="filter-tabs" id="task-filters"><button class="filter-tab active" data-filter="all">All tasks</button><button class="filter-tab" data-filter="active">In progress</button><button class="filter-tab" data-filter="done">Completed</button></div><div class="toolbar-right"><label class="search-box"><span aria-hidden="true">⌕</span><input id="task-search" type="search" placeholder="Search tasks" aria-label="Search tasks" /></label><span id="task-date-label" class="small-muted"></span></div></div>
             <div id="task-list" class="task-list"></div>
+            <nav id="task-pager" class="pager hidden" aria-label="Task pages"></nav>
             <div id="empty-state" class="empty-state hidden"><div class="empty-art">✳</div><h3 id="empty-title">A clear space to begin.</h3><p id="empty-copy">Add your first task and make today count.</p><button id="empty-add" class="btn btn-soft">＋ Create a task</button></div>
           </section>
           <aside class="right-column">
@@ -82,10 +94,10 @@
         </div>
       </section>
 
-      <section id="list-view" class="view hidden"><div class="panel list-view-panel"><div class="panel-heading"><div><h2 id="list-view-title">Upcoming tasks</h2><p id="list-view-subtitle" class="muted">See what’s coming up next.</p></div><button id="list-add" class="btn btn-primary">＋ Add a task</button></div><div id="secondary-task-list" class="task-list"></div><div id="secondary-empty" class="empty-state hidden"><div class="empty-art">✳</div><h3>Nothing here yet.</h3><p>Tasks you add will show up here.</p><button class="btn btn-soft" id="secondary-add">＋ Create a task</button></div></div></section>
+      <section id="list-view" class="view hidden"><div class="panel list-view-panel"><div class="panel-heading"><div><h2 id="list-view-title">Upcoming tasks</h2><p id="list-view-subtitle" class="muted">See what’s coming up next.</p></div><div class="panel-actions"><button id="reschedule-overdue" class="btn btn-soft hidden" type="button">↻ Move all to today</button><button id="list-add" class="btn btn-primary">＋ Add a task</button></div></div><div class="task-toolbar list-toolbar"><span id="list-total" class="small-muted"></span><label class="search-box"><span aria-hidden="true">⌕</span><input id="list-search" type="search" placeholder="Search tasks" aria-label="Search tasks" /></label></div><div id="secondary-task-list" class="task-list"></div><nav id="list-pager" class="pager hidden" aria-label="Task pages"></nav><div id="secondary-empty" class="empty-state hidden"><div class="empty-art">✳</div><h3>Nothing here yet.</h3><p>Tasks you add will show up here.</p><button class="btn btn-soft" id="secondary-add">＋ Create a task</button></div></div></section>
 
       <section id="progress-view" class="view hidden">
-        <div class="progress-stats-grid"><article class="panel progress-stat"><span class="card-kicker">ALL-TIME TASKS</span><strong id="all-total">0</strong><span class="muted">tasks created</span></article><article class="panel progress-stat"><span class="card-kicker">ALL-TIME COMPLETED</span><strong id="all-completed">0</strong><span class="muted">wins collected</span></article><article class="panel progress-stat"><span class="card-kicker">OVERALL COMPLETION</span><strong id="all-rate">0%</strong><span class="muted">your long-term pace</span></article></div>
+        <div class="progress-stats-grid"><article class="panel progress-stat"><span class="card-kicker">ALL-TIME TASKS</span><strong id="all-total">0</strong><span class="muted">tasks created</span></article><article class="panel progress-stat"><span class="card-kicker">ALL-TIME COMPLETED</span><strong id="all-completed">0</strong><span class="muted">wins collected</span></article><article class="panel progress-stat"><span class="card-kicker">OVERALL COMPLETION</span><strong id="all-rate">0%</strong><span class="muted">your long-term pace</span></article><article class="panel progress-stat"><span class="card-kicker">BEST STREAK</span><strong><span id="best-streak">0</span><small> days</small></strong><span class="muted">in a row, so far</span></article></div>
         <section class="panel history-panel"><div class="panel-heading"><div><h2>Your last 7 days</h2><p class="muted">Consistency is built one day at a time.</p></div><span class="history-badge">Last 7 days</span></div><div id="history-chart" class="history-chart"></div><div class="chart-foot"><span><i class="legend-dot"></i> Completed tasks</span><span><i class="legend-dot pale"></i> Remaining tasks</span></div></section>
         <section class="panel reflection-panel"><div class="reflection-icon">✦</div><div><h2>Progress over perfection.</h2><p class="muted">Your task history stays in your account, so you can look back at the work you’ve put in. Keep showing up.</p></div></section>
       </section>
@@ -104,6 +116,8 @@
       <div class="modal-actions"><button type="button" id="modal-cancel" class="btn btn-ghost">Cancel</button><button type="submit" id="save-task" class="btn btn-primary">Save task <span>↗</span></button></div>
     </form>
   </div>
+  <div id="confirm-modal" class="modal-backdrop hidden" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"><div class="modal-card confirm-card"><div class="confirm-icon">×</div><h2 id="confirm-title">Delete this task?</h2><p id="confirm-text" class="muted">This can’t be undone.</p><div class="modal-actions"><button type="button" id="confirm-cancel" class="btn btn-ghost">Keep it</button><button type="button" id="confirm-ok" class="btn btn-danger">Delete</button></div></div></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
   <div id="toast" class="toast" role="status"></div>
   <script src="/app.js"></script>
 </body>
